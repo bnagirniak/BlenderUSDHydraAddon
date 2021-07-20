@@ -86,6 +86,7 @@ register_classes, unregister_classes = bpy.utils.register_classes_factory([
     material.HDUSD_MATERIAL_OP_export_mx_console,
     material.HDUSD_MATERIAL_PT_export_mx,
 
+    world.HDUSD_WORLD_PT_preview,
     world.HDUSD_WORLD_PT_environment,
 
     usd_list.HDUSD_OP_usd_list_item_expand,

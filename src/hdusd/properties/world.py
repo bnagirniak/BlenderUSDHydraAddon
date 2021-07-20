@@ -25,6 +25,12 @@ class WorldProperties(HdUSDProperties):
         description="Enable Environment Light",
         default=True
     )
+    intensity: bpy.props.FloatProperty(
+        name="Intensity",
+        description="Environment intensity",
+        min=0.0,
+        default=1.0,
+    )
     color: bpy.props.FloatVectorProperty(
         name="Color",
         description="Color to use as a constant environment light",

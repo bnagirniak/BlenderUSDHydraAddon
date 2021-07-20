@@ -40,41 +40,27 @@ class HDUSD_WORLD_PT_environment(HdUSD_Panel):
         return context.world and super().poll(context)
 
     def draw_header(self, context):
-        self.layout.prop(context.scene.world.rpr, 'enabled', text="")
+        self.layout.prop(context.scene.world.hdusd, 'enabled', text="")
 
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        rpr = context.scene.world.rpr
+        world_hdusd = context.scene.world.hdusd
 
-        layout.enabled = rpr.enabled
+        layout.enabled = world_hdusd.enabled
 
-        layout.prop(rpr, 'intensity')
+        layout.prop(world_hdusd, 'intensity')
         layout.separator()
 
-        row = layout.row()
-        row.use_property_split = False
-        row.prop(rpr, 'mode', expand=True)
-
-        if rpr.mode == 'IBL':
-            ibl = rpr.ibl
-
-            layout.template_ID(ibl, "image", open="image.open")
-
-            row = layout.row()
-            row.enabled = ibl.image is None
-            row.prop(ibl, 'color')
-
-        else:
-            sun_sky = rpr.sun_sky
-
-            col = layout.column(align=True)
-            col.prop(sun_sky, 'azimuth')
-            col.prop(sun_sky, 'altitude')
-
-            layout.prop(sun_sky, 'resolution')
+        split = layout.row(align=True).split(factor=0.4)
+        col = split.column()
+        col.alignment = 'RIGHT'
+        col.label(text="IBL Image")
+        col = split.column()
+        col.template_ID(world_hdusd, "image", open="image.open")
 
         row = layout.row()
-        row.prop(rpr, 'group')
+        row.enabled = world_hdusd.image is None
+        row.prop(world_hdusd, 'color')
