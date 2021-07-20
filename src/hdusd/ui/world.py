@@ -31,21 +31,50 @@ class HDUSD_WORLD_PT_preview(HdUSD_Panel):
         self.layout.template_preview(context.world)
 
 
-class HDUSD_WORLD_PT_surface(HdUSD_Panel):
-    bl_label = "Surface"
-    bl_context = "world"
+class HDUSD_WORLD_PT_environment(HdUSD_Panel):
+    bl_label = "Environment Light"
+    bl_context = 'world'
 
     @classmethod
     def poll(cls, context):
         return context.world and super().poll(context)
 
+    def draw_header(self, context):
+        self.layout.prop(context.scene.world.rpr, 'enabled', text="")
+
     def draw(self, context):
         layout = self.layout
-
         layout.use_property_split = True
+        layout.use_property_decorate = False
 
-        world = context.world
+        rpr = context.scene.world.rpr
 
-        if not panel_node_draw(layout, world, 'OUTPUT_WORLD', 'Surface'):
-            layout.prop(world, "color")
+        layout.enabled = rpr.enabled
 
+        layout.prop(rpr, 'intensity')
+        layout.separator()
+
+        row = layout.row()
+        row.use_property_split = False
+        row.prop(rpr, 'mode', expand=True)
+
+        if rpr.mode == 'IBL':
+            ibl = rpr.ibl
+
+            layout.template_ID(ibl, "image", open="image.open")
+
+            row = layout.row()
+            row.enabled = ibl.image is None
+            row.prop(ibl, 'color')
+
+        else:
+            sun_sky = rpr.sun_sky
+
+            col = layout.column(align=True)
+            col.prop(sun_sky, 'azimuth')
+            col.prop(sun_sky, 'altitude')
+
+            layout.prop(sun_sky, 'resolution')
+
+        row = layout.row()
+        row.prop(rpr, 'group')
