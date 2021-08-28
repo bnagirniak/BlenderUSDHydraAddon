@@ -97,7 +97,11 @@ class HDUSD_MX_OP_export_console(HdUSD_Operator):
             log.warn("Incorrect node tree to export", mx_node_tree)
             return {'CANCELLED'}
 
-        print(mx.writeToXmlString(doc))
+        if isinstance(doc, Path):
+            print(doc)
+        else:
+            print(mx.writeToXmlString(doc))
+            
         return {'FINISHED'}
 
     @staticmethod

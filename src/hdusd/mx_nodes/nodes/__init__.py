@@ -20,15 +20,19 @@ import nodeitems_utils
 
 from .. import log
 from . import base_node, categories
+from . import mx_file_node
 
 gen_modules = [importlib.import_module(f"hdusd.mx_nodes.nodes.{f.name[:-len(f.suffix)]}")
                for f in Path(__file__).parent.glob("gen_*.py")]
+
 
 mx_nodedef_classes = []
 mx_node_classes = []
 for m in gen_modules:
     mx_nodedef_classes.extend(m.mx_nodedef_classes)
     mx_node_classes.extend(m.mx_node_classes)
+
+mx_node_classes.extend(mx_file_node.mx_node_classes)
 
 register_sockets, unregister_sockets = bpy.utils.register_classes_factory([
     base_node.MxNodeInputSocket,

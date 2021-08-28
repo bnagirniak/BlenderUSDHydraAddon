@@ -153,6 +153,9 @@ class MxNode(bpy.types.ShaderNode):
                 self.create_input(mx_input)
 
             for mx_output in nodedef.getOutputs():
+                if mx_output.getType() == 'material':
+                    continue
+
                 self.create_output(mx_output)
 
             if self._ui_folders:

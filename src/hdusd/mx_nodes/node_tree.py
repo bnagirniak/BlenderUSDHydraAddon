@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #********************************************************************
-from collections import defaultdict
+from pathlib import Path
 
 import MaterialX as mx
 
 import bpy
 
 from .nodes import get_mx_node_cls
+from .nodes.mx_file_node import MxNode_HDUSD_mx_file
 from ..utils import mx as mx_utils
 from . import log
 
@@ -45,8 +46,13 @@ class MxNodeTree(bpy.types.ShaderNodeTree):
 
     @property
     def output_node(self):
-        return next((node for node in self.nodes
-                     if node.bl_idname == 'hdusd.MxNode_STD_surfacematerial'), None)
+        output_node = next((node for node in self.nodes
+                            if node.bl_idname == 'hdusd.MxNode_HDUSD_mx_file'), None)
+        if not output_node:
+            output_node = next((node for node in self.nodes
+                                if node.bl_idname == 'hdusd.MxNode_STD_surfacematerial'), None)
+
+        return output_node
 
     @property
     def output_node_volume(self):
@@ -64,10 +70,13 @@ class MxNodeTree(bpy.types.ShaderNodeTree):
         finally:
             self._do_update = True
 
-    def export(self) -> mx.Document:
+    def export(self) -> [mx.Document, Path]:
         output_node = self.output_node
         if not output_node:
             return None
+
+        if isinstance(output_node, MxNode_HDUSD_mx_file):
+            return output_node.compute(None)
 
         doc = mx.createDocument()
 

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #********************************************************************
+from pathlib import Path
+
 import bpy
 
 from pxr import Sdf, UsdShade, Tf
@@ -43,8 +45,12 @@ def sync(materials_prim, mat: bpy.types.Material, obj: bpy.types.Object):
         log.warn("MX export failed", mat)
         return None
 
-    mx_file = utils.get_temp_file(".mtlx")
-    mx.writeToXmlFile(doc, str(mx_file))
+    if isinstance(doc, Path):
+        mx_file = doc
+    else:
+        mx_file = utils.get_temp_file(".mtlx")
+        mx.writeToXmlFile(doc, str(mx_file))
+
     surfacematerial = next(node for node in doc.getNodes()
                            if node.getCategory() == 'surfacematerial')
 

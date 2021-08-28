@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #********************************************************************
+from pathlib import Path
+
 import bpy
 import MaterialX as mx
 
@@ -40,7 +42,7 @@ class MaterialProperties(HdUSDProperties):
                      node.bl_idname == ShaderNodeOutputMaterial.__name__ and
                      node.is_active_output), None)
 
-    def export(self, obj: bpy.types.Object) -> [mx.Document, None]:
+    def export(self, obj: bpy.types.Object) -> [mx.Document, Path, None]:
         if self.mx_node_tree:
             return self.mx_node_tree.export()
 
