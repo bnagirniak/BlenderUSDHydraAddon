@@ -16,12 +16,36 @@ from pathlib import Path
 
 import bpy
 
-from .base_node import MxNode
+from .base_node import MxNode, MxNodeInputSocket
+
+
+class MxNodeSocketShader(bpy.types.NodeSocket):
+    bl_idname = 'hdusd.MxNodeSocketShader'
+
+    def draw(self, context, layout, node, text):
+        layout.label(text=text)
+
+    def draw_color(self, context, node):
+        return MxNodeInputSocket.get_color('material')
+
+
+class MxNode_HDUSD_output(MxNode):
+    bl_label = 'Output'
+    bl_idname = 'hdusd.MxNode_HDUSD_output'
+    bl_description = "Output node"
+
+    category = 'output'
+
+    def init(self, context):
+        self.inputs.new(MxNodeSocketShader.bl_idname, "Material")
+
+    def compute(self, out_key, **kwargs):
+        return Path(self.p_file)
 
 
 class MxNode_HDUSD_mx_file(MxNode):
     bl_label = 'MaterialX File'
-    bl_idname = 'hdusd.MxNode_mx_file'
+    bl_idname = 'hdusd.MxNode_HDUSD_mx_file'
     bl_description = "Import MaterialX (.mtlx) file"
 
     category = 'material'
@@ -38,13 +62,13 @@ class MxNode_HDUSD_mx_file(MxNode):
     )
 
     def init(self, context):
-        pass
+        self.outputs.new(MxNodeSocketShader.bl_idname, "Material")
 
     def draw_buttons(self, context, layout):
         layout.prop(self, 'p_file')
 
-    def compute(self, out_key, **kwargs):
+    def compute(self, out_key, **kwargs) -> Path:
         return Path(self.p_file)
 
 
-mx_node_classes = [MxNode_HDUSD_mx_file]
+mx_node_classes = [MxNode_HDUSD_output, MxNode_HDUSD_mx_file]

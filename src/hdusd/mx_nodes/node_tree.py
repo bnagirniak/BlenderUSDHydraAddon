@@ -19,7 +19,7 @@ import MaterialX as mx
 import bpy
 
 from .nodes import get_mx_node_cls
-from .nodes.mx_file_node import MxNode_HDUSD_mx_file
+from .nodes.hdusd_nodes import MxNode_HDUSD_mx_file
 from ..utils import mx as mx_utils
 from . import log
 
