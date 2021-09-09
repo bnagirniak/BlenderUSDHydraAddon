@@ -18,11 +18,10 @@ import shutil
 from pathlib import Path
 import zipfile
 
-from .. import config
 from . import LIBS_DIR, log
 
 
-URL = config.matlib_url
+URL = "https://matlibapi.cistest.luxoft.com/api"
 MATLIB_DIR = LIBS_DIR.parent / "matlib"
 
 
