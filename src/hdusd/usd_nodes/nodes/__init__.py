@@ -20,7 +20,7 @@ from .. import log
 # classes to register
 from . import (
     usd_file, blender_data, write_file, merge, print_file, filter, root, instancing, usd_to_blender,
-    hydra_render, rpr_render_settings, transformations
+    hydra_render, rpr_render_settings, transformations, assign_material
 )
 
 
@@ -49,6 +49,9 @@ node_categories = [
     USDNodeCategory('HdUSD_USD_TRANSFORMATIONS', 'Transformations', items=[
         NodeItem('usd.TransformNode'),
     ]),
+    USDNodeCategory('HdUSD_USD_MATERIAL', 'Material', items=[
+        NodeItem('usd.AssignMaterial'),
+    ]),
 ]
 
 # nodes to register
@@ -73,6 +76,10 @@ register_classes, unregister_classes = bpy.utils.register_classes_factory([
     hydra_render.HydraRenderNode,
     rpr_render_settings.RprRenderSettingsNode,
     transformations.TransformNode,
+    assign_material.HDUSD_USD_NODETREE_OP_assign_material_assign_material,
+    assign_material.HDUSD_USD_NODETREE_OP_assign_material_remove_material,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material,
+    assign_material.AssignMaterialNode,
 ])
 
 
