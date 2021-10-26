@@ -22,6 +22,9 @@ from .base_node import USDNode
 from ...export import material
 
 
+MAX_MESH_COUNT = 10
+
+
 def get_meshes(stage):
     usd_prims = (prim for prim in stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
     mesh_collection = []
@@ -70,6 +73,25 @@ class HDUSD_USD_NODETREE_OP_assign_material_remove_material(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class HDUSD_USD_NODETREE_OP_assign_material_add_mesh(bpy.types.Operator):
+    """Add mesh"""
+    bl_idname = "hdusd.usd_nodetree_assign_material_add_mesh"
+    bl_label = ""
+
+    def execute(self, context):
+        context.node.mesh_count += 1
+        return {"FINISHED"}
+
+
+class HDUSD_USD_NODETREE_OP_assign_material_remove_mesh(bpy.types.Operator):
+    """Add mesh"""
+    bl_idname = "hdusd.usd_nodetree_assign_material_remove_mesh"
+    bl_label = ""
+
+    def execute(self, context):
+        return {"FINISHED"}
+
+
 class AssignMaterialNode(USDNode):
     """Assign material"""
     bl_idname = 'usd.AssignMaterial'
@@ -93,6 +115,11 @@ class AssignMaterialNode(USDNode):
         update=update_data
     )
 
+    mesh_count: bpy.props.IntProperty(
+        name="Inputs",
+        min=1, max=MAX_MESH_COUNT, default=1,
+    )
+
     mesh_collection: bpy.props.EnumProperty(
         name="Mesh",
         description="Select mesh",
@@ -101,20 +128,25 @@ class AssignMaterialNode(USDNode):
     )
 
     def draw_buttons(self, context, layout):
-        layout.prop(self, "mesh_collection")
+        layout.operator(HDUSD_USD_NODETREE_OP_assign_material_add_mesh.bl_idname)
 
-        split = layout.row(align=True).split(factor=0.25)
-        col = split.column()
-        col.label(text="Material")
-        col = split.column()
-        row = col.row(align=True)
-        if self.material:
-            row.menu(HDUSD_USD_NODETREE_MT_assign_material_material.bl_idname,
-                     text=self.material.name_full, icon='MATERIAL')
-            row.operator(HDUSD_USD_NODETREE_OP_assign_material_remove_material.bl_idname, icon='X')
-        else:
-            row.menu(HDUSD_USD_NODETREE_MT_assign_material_material.bl_idname,
-                     text=" ", icon='MATERIAL')
+        for i in range(self.mesh_count):
+            layout.prop(self, "mesh_collection")
+
+            split = layout.row(align=True).split(factor=0.25)
+            col = split.column()
+            col.label(text="Material")
+            col = split.column()
+            row = col.row(align=True)
+            if self.material:
+                row.menu(HDUSD_USD_NODETREE_MT_assign_material_material.bl_idname,
+                         text=self.material.name_full, icon='MATERIAL')
+                row.operator(HDUSD_USD_NODETREE_OP_assign_material_remove_material.bl_idname, icon='X')
+            else:
+                row.menu(HDUSD_USD_NODETREE_MT_assign_material_material.bl_idname,
+                         text=" ", icon='MATERIAL')
+
+            layout.separator()
 
     def compute(self, **kwargs):
         input_stage = self.get_input_link('Input', **kwargs)
