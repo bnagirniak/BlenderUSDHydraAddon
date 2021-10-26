@@ -22,6 +22,17 @@ from .base_node import USDNode
 from ...export import material
 
 
+def get_meshes(stage):
+    usd_prims = (prim for prim in stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
+    mesh_collection = []
+
+    for prim in usd_prims:
+        mesh_collection.append(
+            (str(len(mesh_collection)), prim.GetName(), prim.GetPath().pathString))
+
+    return mesh_collection
+
+
 class HDUSD_USD_NODETREE_OP_assign_material_assign_material(bpy.types.Operator):
     """Assign material"""
     bl_idname = "hdusd.usd_nodetree_assign_material_assign_material"
@@ -68,6 +79,13 @@ class AssignMaterialNode(USDNode):
     def update_data(self, context):
         self.reset()
 
+    def get_mesh_collection(self, context):
+        input_stage = self.get_input_link('Input')
+        if not input_stage:
+            return ()
+
+        return get_meshes(input_stage)
+
     material: bpy.props.PointerProperty(
         type=bpy.types.Material,
         name="Material",
@@ -75,23 +93,16 @@ class AssignMaterialNode(USDNode):
         update=update_data
     )
 
-    obj_name: bpy.props.StringProperty(
-        name="Object name",
-        description="",
-        default="",
-        update=update_data
-    )
-
-    mesh_name: bpy.props.StringProperty(
-        name="Mesh name",
-        description="",
-        default="",
+    mesh_collection: bpy.props.EnumProperty(
+        name="Mesh",
+        description="Select mesh",
+        items=get_mesh_collection,
         update=update_data
     )
 
     def draw_buttons(self, context, layout):
-        layout.prop(self, 'obj_name')
-        layout.prop(self, 'mesh_name')
+        layout.prop(self, "mesh_collection")
+
         split = layout.row(align=True).split(factor=0.25)
         col = split.column()
         col.label(text="Material")
@@ -108,31 +119,35 @@ class AssignMaterialNode(USDNode):
     def compute(self, **kwargs):
         input_stage = self.get_input_link('Input', **kwargs)
 
-        if not input_stage or not self.obj_name or not self.mesh_name:
+        if not input_stage:
+            return None
+
+        if not self.material:
             return input_stage
 
         stage = self.cached_stage.create()
-        stage = input_stage
-        root_path = stage.GetPseudoRoot().GetPath().pathString
+        stage.GetRootLayer().TransferContent(input_stage.GetRootLayer())
 
-        obj_prim = stage.GetPrimAtPath(f"{root_path}{Tf.MakeValidIdentifier(self.obj_name)}")
-        if not (obj_prim and obj_prim.IsValid()):
+        if not self.mesh_collection:
             return stage
 
-        usd_mesh = UsdGeom.Mesh.Get(stage, f"{root_path}{Tf.MakeValidIdentifier(self.obj_name)}/"
-                                           f"{Tf.MakeValidIdentifier(self.mesh_name)}")
-        if not usd_mesh:
-            return stage
+        selected_mesh = get_meshes(stage)[int(self.mesh_collection)]
+        usd_prim = stage.GetPrimAtPath(selected_mesh[2]).GetParent()
+        usd_mesh = UsdGeom.Mesh.Get(stage, selected_mesh[2])
 
-        usd_material = material.sync(obj_prim, self.material, None)
         usd_mesh_rel_mat = UsdShade.MaterialBindingAPI.Get(stage, usd_mesh.GetPath()).GetDirectBindingRel()
+
         old_mat_path = next((target for target in usd_mesh_rel_mat.GetTargets()), None) \
             if usd_mesh_rel_mat.IsValid() else None
+
         old_mat_parent_prim = stage.GetPrimAtPath(old_mat_path).GetParent().GetParent() \
             if old_mat_path else None
-        if old_mat_parent_prim and old_mat_parent_prim.IsValid() \
-                and old_mat_path != usd_material.GetPrim().GetPath():
+
+        if old_mat_parent_prim and old_mat_parent_prim.IsValid():
+            old_mat_parent_prim.SetActive(False)
             stage.RemovePrim(old_mat_parent_prim.GetPath())
 
+        usd_material = material.sync(usd_prim, self.material, None)
         UsdShade.MaterialBindingAPI(usd_mesh).Bind(usd_material)
+
         return stage
