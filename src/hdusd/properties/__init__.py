@@ -54,8 +54,6 @@ from . import (
     matlib
 )
 register, unregister = bpy.utils.register_classes_factory((
-    CachedStageProp,
-
     hdrpr_render.QualitySettings,
     hdrpr_render.InteractiveQualitySettings,
     hdrpr_render.ContourSettings,

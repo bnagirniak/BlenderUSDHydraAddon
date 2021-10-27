@@ -20,6 +20,7 @@ from pxr import Usd, UsdGeom, Tf, UsdShade
 from .base_node import USDNode
 
 from ...export import material
+from ...properties import CachedStageProp
 
 
 MAX_MESH_COUNT = 10
@@ -80,6 +81,7 @@ class HDUSD_USD_NODETREE_OP_assign_material_add_mesh(bpy.types.Operator):
 
     def execute(self, context):
         context.node.mesh_count += 1
+        context.node.mesh_with_material.add()
         return {"FINISHED"}
 
 
@@ -92,6 +94,31 @@ class HDUSD_USD_NODETREE_OP_assign_material_remove_mesh(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MeshWithMaterialItem(bpy.types.PropertyGroup):
+    def get_mesh_collection(self, context):
+        node_tree = context.space_data.node_tree if context.space_data.tree_type == 'hdusd.USDTree' else None
+        assign_material_node = node_tree.nodes["Assign material"]
+        cached_stage = assign_material_node.cached_stage()
+
+        return get_meshes(cached_stage) if cached_stage else ()
+
+    def get_valid_material(self, object):
+        return not object.is_grease_pencil
+
+    mesh_collection: bpy.props.EnumProperty(
+        name="Mesh",
+        description="Select mesh",
+        items=get_mesh_collection,
+    )
+
+    material: bpy.props.PointerProperty(
+        type=bpy.types.Material,
+        name="Material",
+        description="",
+        poll=get_valid_material
+    )
+
+
 class AssignMaterialNode(USDNode):
     """Assign material"""
     bl_idname = 'usd.AssignMaterial'
@@ -101,50 +128,21 @@ class AssignMaterialNode(USDNode):
     def update_data(self, context):
         self.reset()
 
-    def get_mesh_collection(self, context):
-        input_stage = self.get_input_link('Input')
-        if not input_stage:
-            return ()
-
-        return get_meshes(input_stage)
-
-    material: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-
     mesh_count: bpy.props.IntProperty(
         name="Inputs",
         min=1, max=MAX_MESH_COUNT, default=1,
     )
 
-    mesh_collection: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
+    mesh_with_material: bpy.props.CollectionProperty(type=MeshWithMaterialItem)
+
+    cached_stage: bpy.props.PointerProperty(type=CachedStageProp)
 
     def draw_buttons(self, context, layout):
         layout.operator(HDUSD_USD_NODETREE_OP_assign_material_add_mesh.bl_idname)
 
-        for i in range(self.mesh_count):
-            layout.prop(self, "mesh_collection")
-
-            split = layout.row(align=True).split(factor=0.25)
-            col = split.column()
-            col.label(text="Material")
-            col = split.column()
-            row = col.row(align=True)
-            if self.material:
-                row.menu(HDUSD_USD_NODETREE_MT_assign_material_material.bl_idname,
-                         text=self.material.name_full, icon='MATERIAL')
-                row.operator(HDUSD_USD_NODETREE_OP_assign_material_remove_material.bl_idname, icon='X')
-            else:
-                row.menu(HDUSD_USD_NODETREE_MT_assign_material_material.bl_idname,
-                         text=" ", icon='MATERIAL')
+        for mesh in self.mesh_with_material:
+            layout.prop(mesh, "mesh_collection")
+            layout.prop(mesh, "material")
 
             layout.separator()
 
@@ -154,32 +152,29 @@ class AssignMaterialNode(USDNode):
         if not input_stage:
             return None
 
-        if not self.material:
-            return input_stage
-
         stage = self.cached_stage.create()
         stage.GetRootLayer().TransferContent(input_stage.GetRootLayer())
 
-        if not self.mesh_collection:
-            return stage
+        #if not self.mesh_collection:
+        #    return stage
 
-        selected_mesh = get_meshes(stage)[int(self.mesh_collection)]
-        usd_prim = stage.GetPrimAtPath(selected_mesh[2]).GetParent()
-        usd_mesh = UsdGeom.Mesh.Get(stage, selected_mesh[2])
+        #selected_mesh = get_meshes(stage)[int(self.mesh_collection)]
+        #usd_prim = stage.GetPrimAtPath(selected_mesh[2]).GetParent()
+        #usd_mesh = UsdGeom.Mesh.Get(stage, selected_mesh[2])
 
-        usd_mesh_rel_mat = UsdShade.MaterialBindingAPI.Get(stage, usd_mesh.GetPath()).GetDirectBindingRel()
+        #usd_mesh_rel_mat = UsdShade.MaterialBindingAPI.Get(stage, usd_mesh.GetPath()).GetDirectBindingRel()
 
-        old_mat_path = next((target for target in usd_mesh_rel_mat.GetTargets()), None) \
-            if usd_mesh_rel_mat.IsValid() else None
+        #old_mat_path = next((target for target in usd_mesh_rel_mat.GetTargets()), None) \
+        #    if usd_mesh_rel_mat.IsValid() else None
 
-        old_mat_parent_prim = stage.GetPrimAtPath(old_mat_path).GetParent().GetParent() \
-            if old_mat_path else None
+        #old_mat_parent_prim = stage.GetPrimAtPath(old_mat_path).GetParent().GetParent() \
+        #    if old_mat_path else None
 
-        if old_mat_parent_prim and old_mat_parent_prim.IsValid():
-            old_mat_parent_prim.SetActive(False)
-            stage.RemovePrim(old_mat_parent_prim.GetPath())
+        #if old_mat_parent_prim and old_mat_parent_prim.IsValid():
+        #    old_mat_parent_prim.SetActive(False)
+        #    stage.RemovePrim(old_mat_parent_prim.GetPath())
 
-        usd_material = material.sync(usd_prim, self.material, None)
-        UsdShade.MaterialBindingAPI(usd_mesh).Bind(usd_material)
+        #usd_material = material.sync(usd_prim, self.material, None)
+        #UsdShade.MaterialBindingAPI(usd_mesh).Bind(usd_material)
 
         return stage
