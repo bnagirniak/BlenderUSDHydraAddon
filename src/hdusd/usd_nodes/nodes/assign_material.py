@@ -57,7 +57,6 @@ class HDUSD_USD_NODETREE_OP_assign_material_remove_mesh(bpy.types.Operator):
     index: bpy.props.IntProperty()
 
     def execute(self, context):
-        print(self.index)
         context.node.mesh_with_material.remove(self.index)
         return {"FINISHED"}
 
@@ -93,7 +92,7 @@ class MeshWithMaterialItem(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(
         type=bpy.types.Material,
         name="Material",
-        description="",
+        description="Select material",
         poll=get_valid_material,
         update=update_data
     )
@@ -147,7 +146,7 @@ class AssignMaterialNode(USDNode):
             return cached_stage
 
         for mesh in self.mesh_with_material:
-            if not mesh.material or not bool(mesh.mesh):
+            if not mesh.material or not bool(mesh.mesh) or mesh.mesh == 'NONE':
                 continue
 
             selected_mesh = get_meshes(cached_stage)[int(mesh.mesh)]
