@@ -19,6 +19,8 @@ import shutil
 from pathlib import Path
 import zipfile
 import json
+from concurrent import futures
+import threading
 
 from . import LIBS_DIR
 
@@ -78,6 +80,7 @@ class Render:
     thumbnail_url: str = field(init=False, default=None)
     thumbnail_path: Path = field(init=False, default=None)
     thumbnail_icon_id: int = field(init=False, default=None)
+
 
     def __init__(self, id, material):
         self.id = id
@@ -183,7 +186,7 @@ class Material:
     author: str
     title: str
     description: str
-    category: Category
+    category_id: str
     status: str
     renders: list[Render]
     packages: list[Package]
@@ -193,7 +196,7 @@ class Material:
         self.author = mat_json['author']
         self.title = mat_json['title']
         self.description = mat_json['description']
-        self.category = Category(mat_json['category']) if mat_json['category'] else None
+        self.category_id = mat_json['category']
         self.status = mat_json['status']
 
         self.renders = []
@@ -215,8 +218,8 @@ class Material:
         text = self.title
         if self.description:
             text += f"\n{self.description}"
-        if self.category:
-            text += f"\nCategory: {self.category.title}"
+        if self.category_id:
+            text += f"\nCategory: {manager.categories[self.category_id].title}"
         text += f"\nAuthor: {self.author}"
 
         return text
@@ -246,3 +249,80 @@ class Material:
                 break
 
             offset += limit
+
+
+class Manager:
+    def __init__(self):
+        self.executor = futures.ThreadPoolExecutor()
+        self.material_lock = threading.Lock()
+        self.category_lock = threading.Lock()
+
+        self.materials = None
+        self.categories = None
+
+    def __del__(self):
+        self.executor.shutdown()
+
+    def load_data(self, pcoll):
+        with self.material_lock:
+            if self.materials is not None:
+                return
+
+            self.materials = {}
+            self.categories = {}
+
+        materials = list(Material.get_all_materials())
+        categories = {}
+        for mat in materials:
+            if mat.category_id in categories:
+                continue
+
+            categories[mat.category_id] = Category(mat.category_id)
+
+        def category_load(cat):
+            cat.get_info()
+            with self.category_lock:
+                self.categories[cat.id] = cat
+
+        def render_load(mat):
+            render = mat.renders[0]
+            render.get_info()
+            render.get_thumbnail()
+            render.thumbnail_load(pcoll)
+            with self.material_lock:
+                self.materials[mat.id] = mat
+
+        for cat in categories.values():
+            self.executor.submit(category_load, cat)
+
+        for mat in materials:
+            self.executor.submit(render_load, mat)
+
+    def get_materials(self, *, category_id=None, search_str=None):
+        materials = []
+        with self.material_lock:
+            for mat in self.materials.values():
+                if category_id and (not mat.category_id or mat.category_id != category_id):
+                    continue
+
+                if search_str and not search_str in mat.title.strip().lower():
+                    continue
+
+                materials.append(mat)
+
+        return materials
+
+    def get_material(self, material_id):
+        with self.material_lock:
+            return self.materials[material_id]
+
+    def get_categories(self):
+        with self.category_lock:
+            return list(self.categories.values())
+
+    def get_category(self, category_id):
+        with self.category_lock:
+            return self.categories[category_id]
+
+
+manager = Manager()

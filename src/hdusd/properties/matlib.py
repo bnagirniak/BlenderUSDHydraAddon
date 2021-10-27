@@ -22,73 +22,23 @@ from . import HdUSDProperties
 from ..utils import matlib
 
 
-thread_pool = futures.ThreadPoolExecutor()
-mutex = threading.Lock()
-
-
 class MatlibProperties(bpy.types.PropertyGroup):
     pcoll = None
 
-    def _set_materials(self):
-        self.pcoll.materials = {}
-        materials = list(matlib.Material.get_all_materials())
-        for mat in materials:
-            if mat.category:
-                mat.category.get_info()
-
-        def render_load(mat):
-            render = mat.renders[0]
-            render.get_info()
-            render.get_thumbnail()
-            render.thumbnail_load(self.pcoll)
-
-        fs = {thread_pool.submit(render_load, mat): mat for mat in materials}
-        for f in futures.as_completed(fs):
-            mat = fs[f]
-            self.pcoll.materials[mat.id] = mat
-
     def get_materials(self):
-        materials = []
-        search_str = self.search.strip().lower()
-        for mat in self.pcoll.materials.values():
-            if self.category != 'ALL' and (not mat.category or mat.category.id != self.category):
-                continue
-
-            if search_str and not search_str in mat.title.strip().lower():
-                continue
-
-            materials.append(mat)
-
-        return materials
+        return matlib.manager.get_materials(
+            category_id=self.category if self.category != 'ALL' else '',
+            search_str=self.search.strip().lower()
+        )
 
     def get_materials_prop(self, context):
-        if not self.pcoll.materials:
-            self._set_materials()
-
         return [(mat.id, mat.title, mat.full_description, mat.renders[0].thumbnail_icon_id, i)
                 for i, mat in enumerate(self.get_materials())]
 
-    def _set_categories(self):
-        self.pcoll.categories = {}
-
-        if not self.pcoll.materials:
-            self._set_materials()
-
-        for mat in self.pcoll.materials:
-            cat = self.pcoll.materials[mat].category
-            if not cat or cat.id in self.pcoll.categories:
-                continue
-
-            cat.get_info()
-            self.pcoll.categories[cat.id] = cat
-
     def get_categories_prop(self, context):
-        if self.pcoll.categories is None:
-            self._set_categories()
-
         categories = [('ALL', "All Categories", "Show materials for all categories")]
         categories += ((cat.id, cat.title, f"Category: {cat.title}")
-                       for cat in self.pcoll.categories.values())
+                       for cat in matlib.manager.get_categories())
         return categories
 
     def update_material(self, context):
@@ -124,12 +74,11 @@ class MatlibProperties(bpy.types.PropertyGroup):
         cls.pcoll = bpy.utils.previews.new()
         cls.pcoll.materials = None
         cls.pcoll.categories = None
-        print(cls)
+        matlib.manager.load_data(cls.pcoll)
 
     @classmethod
     def unregister(cls):
         bpy.utils.previews.remove(cls.pcoll)
-        print(cls)
 
 
 class WindowManagerProperties(HdUSDProperties):

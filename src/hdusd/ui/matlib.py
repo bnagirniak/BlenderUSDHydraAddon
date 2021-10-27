@@ -21,6 +21,7 @@ import bpy
 from . import HdUSD_Panel, HdUSD_Operator
 from ..mx_nodes.node_tree import MxNodeTree
 from ..utils import mx as mx_utils
+from ..utils import matlib
 from .. import config
 
 from ..utils import logging
@@ -122,7 +123,7 @@ class HDUSD_MATLIB_PT_matlib(HdUSD_Panel):
 
         layout.template_icon_view(matlib_prop, "material", show_labels=True)
 
-        material = matlib_prop.pcoll.materials[matlib_prop.material]
+        material = matlib.manager.get_material(matlib_prop.material)
         if len(material.renders) > 1:
             grid = layout.grid_flow(align=True)
             for i, render in enumerate(material.renders):
@@ -201,8 +202,7 @@ class HDUSD_MATLIB_MT_package_menu(bpy.types.Menu):
         packages = matlib_prop.pcoll.materials[matlib_prop.material].packages
 
         for package in packages:
-            if package.file is None:
-                package.get_info()
+            package.get_info()
 
             row = layout.row()
             op = row.operator(op_idname, text=f"{package.label} ({package.size})",
