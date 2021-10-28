@@ -26,17 +26,6 @@ from ...properties import CachedStageProp
 MAX_MESH_COUNT = 10
 
 
-def get_meshes(stage):
-    usd_prims = (prim for prim in stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
-    mesh_collection = []
-
-    for prim in usd_prims:
-        mesh_collection.append(
-            (str(len(mesh_collection)), prim.GetName(), prim.GetPath().pathString))
-
-    return mesh_collection
-
-
 class HDUSD_USD_NODETREE_OP_assign_material_add_mesh(bpy.types.Operator):
     """Add mesh"""
     bl_idname = "hdusd.usd_nodetree_assign_material_add_mesh"
@@ -77,7 +66,17 @@ class MeshWithMaterialItem(bpy.types.PropertyGroup):
         current_node = self.get_current_node(context)
         cached_stage = current_node.cached_stage() if current_node else None
 
-        return get_meshes(cached_stage) if cached_stage else tuple((("NONE", "None", "", 1),))
+        if not cached_stage:
+            return tuple((("NONE", "None", "", 1),))
+
+        usd_prims = (prim for prim in cached_stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
+        mesh_collection = []
+
+        for prim in usd_prims:
+            mesh_collection.append(
+                (prim.GetPath().pathString, prim.GetName(), str(len(mesh_collection))))
+
+        return mesh_collection
 
     def get_valid_material(self, object):
         return not object.is_grease_pencil
@@ -149,9 +148,8 @@ class AssignMaterialNode(USDNode):
             if not mesh.material or not bool(mesh.mesh) or mesh.mesh == 'NONE':
                 continue
 
-            selected_mesh = get_meshes(cached_stage)[int(mesh.mesh)]
-            usd_prim = cached_stage.GetPrimAtPath(selected_mesh[2]).GetParent()
-            usd_mesh = UsdGeom.Mesh.Get(cached_stage, selected_mesh[2])
+            usd_prim = cached_stage.GetPrimAtPath(mesh.mesh).GetParent()
+            usd_mesh = UsdGeom.Mesh.Get(cached_stage, mesh.mesh)
 
             usd_mesh_rel_mat = UsdShade.MaterialBindingAPI.Get(cached_stage, usd_mesh.GetPath()).GetDirectBindingRel()
 
