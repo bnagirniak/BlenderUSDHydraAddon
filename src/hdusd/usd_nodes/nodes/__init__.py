@@ -23,7 +23,6 @@ from . import (
     hydra_render, rpr_render_settings, transformations, assign_material
 )
 
-from ...properties import CachedStageProp
 
 class USDNodeCategory(NodeCategory):
     @classmethod
@@ -57,8 +56,6 @@ node_categories = [
 
 # nodes to register
 register_classes, unregister_classes = bpy.utils.register_classes_factory([
-    CachedStageProp,
-
     blender_data.HDUSD_USD_NODETREE_OP_blender_data_link_collection,
     blender_data.HDUSD_USD_NODETREE_OP_blender_data_unlink_collection,
     blender_data.HDUSD_USD_NODETREE_MT_blender_data_collection,
@@ -79,9 +76,20 @@ register_classes, unregister_classes = bpy.utils.register_classes_factory([
     hydra_render.HydraRenderNode,
     rpr_render_settings.RprRenderSettingsNode,
     transformations.TransformNode,
+    assign_material.HDUSD_USD_NODETREE_OP_assign_material_assign_material,
+    assign_material.HDUSD_USD_NODETREE_OP_assign_material_remove_material,
     assign_material.HDUSD_USD_NODETREE_OP_assign_material_add_mesh,
     assign_material.HDUSD_USD_NODETREE_OP_assign_material_remove_mesh,
-    assign_material.MeshWithMaterialItem,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_1,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_2,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_3,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_4,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_5,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_6,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_7,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_8,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_9,
+    assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_10,
     assign_material.AssignMaterialNode,
 ])
 
