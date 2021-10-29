@@ -472,18 +472,8 @@ class AssignMaterialNode(USDNode):
         if not input_stage:
             return None
 
-        # mat_props = (getattr(self, self.material_collection_names[i]) for i, mesh_prop
-        #              in enumerate(self.mesh_collection_names))
-        #
-        # is_mat_selected = next((mat for mat in mat_props if mat is not None), None)
-        #
-        # if not is_mat_selected:
-        #     return input_stage
-
         cached_stage = self.cached_stage.create()
         cached_stage.GetRootLayer().TransferContent(input_stage.GetRootLayer())
-
-        #for i, mesh_prop in enumerate(self.mesh_collection_names):
 
         selected_meshes = tuple(idx for idx in self.mesh_idxs_vector if idx != -1)
 
@@ -493,7 +483,6 @@ class AssignMaterialNode(USDNode):
             mesh_prop_value = getattr(self, mesh_prop_name)
             material_prop_value = getattr(self, self.material_collection_names[i])
 
-            #if not mesh_prop or not material_prop_value:
             if not mesh_prop_value:
                 continue
 
