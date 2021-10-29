@@ -23,20 +23,6 @@ from ...export import material
 
 
 MAX_MESH_COUNT = 10
-MIN_MESH_COUNT = 1
-
-DUMMY_MESH_NAME = 'NONE'
-
-
-def get_meshes(stage):
-    usd_prims = (prim for prim in stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
-    mesh_collection = [(DUMMY_MESH_NAME, DUMMY_MESH_NAME, DUMMY_MESH_NAME)]
-
-    for prim in usd_prims:
-        mesh_collection.append(
-            (prim.GetPath().pathString, prim.GetName(), str(len(mesh_collection))))
-
-    return mesh_collection
 
 
 class HDUSD_USD_NODETREE_MT_assign_material_material_base_class(bpy.types.Menu):
@@ -53,7 +39,7 @@ class HDUSD_USD_NODETREE_MT_assign_material_material_base_class(bpy.types.Menu):
             row = layout.row()
             op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
                               text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_" + str(self.index)
+            op.material_prop_name = f"material_{self.index}"
             op.material_name = mat.name_full
 
 
@@ -70,22 +56,10 @@ class HDUSD_USD_NODETREE_OP_assign_material_assign_material(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class HDUSD_USD_NODETREE_OP_assign_material_remove_material(bpy.types.Operator):
-    """Remove material"""
-    bl_idname = "hdusd.usd_nodetree_assign_material_remove_material"
-    bl_label = ""
-
-    material_prop_name: bpy.props.StringProperty(default="")
-
-    def execute(self, context):
-        setattr(context.node, self.material_prop_name, None)
-        return {"FINISHED"}
-
-
 class HDUSD_USD_NODETREE_OP_assign_material_add_mesh(bpy.types.Operator):
-    """Add mesh"""
+    """Add material assignment to mesh"""
     bl_idname = "hdusd.usd_nodetree_assign_material_add_mesh"
-    bl_label = ""
+    bl_label = "Add Assignment"
 
     def execute(self, context):
         mesh_idxs_vector = context.node.mesh_idxs_vector
@@ -120,10 +94,10 @@ class HDUSD_USD_NODETREE_OP_assign_material_remove_mesh(bpy.types.Operator):
         current_mesh_prop_name = context.node.mesh_collection_names[self.index]
 
         setattr(context.node, current_material_prop_name, None)
-        setattr(context.node, current_mesh_prop_name, DUMMY_MESH_NAME)
+        setattr(context.node, current_mesh_prop_name, 'NONE')
 
         selected_meshes = len(tuple(filter(lambda val: val != -1, mesh_idxs_vector)))
-        if selected_meshes == MIN_MESH_COUNT:
+        if selected_meshes == 1:
             return {"FINISHED"}
 
         mesh_idxs_vector[self.index] = -1
@@ -135,6 +109,7 @@ class AssignMaterialNode(USDNode):
     bl_idname = 'usd.AssignMaterial'
     bl_label = "Assign material"
     bl_icon = "MATERIAL"
+    bl_width_default = 300
 
     mesh_collection_names = tuple(f"mesh_collection_{i}" for i in range(MAX_MESH_COUNT))
     material_collection_names = tuple(f"material_{i}" for i in range(MAX_MESH_COUNT))
@@ -147,13 +122,22 @@ class AssignMaterialNode(USDNode):
         if not input_stage or not context:
             return ()
 
-        return get_meshes(input_stage)
+        usd_prims = (prim for prim in input_stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
+        mesh_collection = [('NONE', "", "")]
+
+        for prim in usd_prims:
+            mesh_collection.append(
+                (prim.GetPath().pathString, prim.GetName(), str(len(mesh_collection))))
+
+        return mesh_collection
+
+    def poll_material(self, mat):
+        return not mat.is_grease_pencil
 
     # region properties
     mesh_idxs_vector: bpy.props.IntVectorProperty(
         name="Selected meshes", size=MAX_MESH_COUNT,
-        default=tuple((i for i in range(MIN_MESH_COUNT))) +
-                tuple((-1 for i in range(MAX_MESH_COUNT - MIN_MESH_COUNT)))
+        default=(0,) + (-1,) * (MAX_MESH_COUNT - 1)     # (0, -1, -1, ...)
     )
 
     mesh_collection_0: bpy.props.EnumProperty(
@@ -167,7 +151,8 @@ class AssignMaterialNode(USDNode):
         type=bpy.types.Material,
         name="Material",
         description="",
-        update=update_data
+        update=update_data,
+        poll=poll_material
     )
 
     mesh_collection_1: bpy.props.EnumProperty(
@@ -298,39 +283,26 @@ class AssignMaterialNode(USDNode):
     # endregion
 
     def draw_buttons(self, context, layout):
-        layout.operator(HDUSD_USD_NODETREE_OP_assign_material_add_mesh.bl_idname)
+        for i in self.mesh_idxs_vector:
+            if i == -1:
+                continue
 
-        selected_meshes = tuple(idx for idx in self.mesh_idxs_vector if idx != -1)
-
-        for i in selected_meshes:
-            mesh_prop_name = "mesh_collection_" + str(i)
-            material_prop_name = "material_" + str(i)
+            mesh_prop_name = f"mesh_collection_{i}"
+            material_prop_name = f"material_{i}"
             material_prop_value = getattr(self, material_prop_name)
 
-            split = layout.row(align=True).split(factor=0.85)
-            col = split.column()
-            col.prop(self, mesh_prop_name)
-            col = split.column()
-
-            op_remove_mesh = col.operator(
+            row = layout.row(align=True)
+            row.prop(self, mesh_prop_name, text="")
+            row.separator()
+            row.prop(self, material_prop_name, text="")
+            # row.menu(f"HDUSD_USD_NODETREE_MT_assign_material_{material_prop_name}",
+            #          text=material_prop_value.name_full if material_prop_value else " ",
+            #          icon='MATERIAL')
+            op_remove_mesh = row.operator(
                 HDUSD_USD_NODETREE_OP_assign_material_remove_mesh.bl_idname, icon='X')
             op_remove_mesh.index = i
 
-            split = layout.row(align=True).split(factor=0.85)
-            col = split.column()
-
-            menu_name = "HDUSD_USD_NODETREE_MT_assign_material_" + material_prop_name
-            if material_prop_value:
-                col.menu(menu_name, text=material_prop_value.name_full, icon='MATERIAL')
-                col = split.column()
-
-                op_remove_mat = col.operator(HDUSD_USD_NODETREE_OP_assign_material_remove_material.bl_idname, icon='X')
-                op_remove_mat.material_prop_name = material_prop_name
-            else:
-                col.menu(menu_name, text=" ", icon='MATERIAL')
-                split.column()
-
-            layout.separator()
+        layout.operator(HDUSD_USD_NODETREE_OP_assign_material_add_mesh.bl_idname)
 
     def compute(self, **kwargs):
         input_stage = self.get_input_link('Input', **kwargs)
@@ -348,7 +320,7 @@ class AssignMaterialNode(USDNode):
             mesh_prop_value = getattr(self, mesh_prop_name)
             material_prop_value = getattr(self, self.material_collection_names[i])
 
-            if not mesh_prop_value or mesh_prop_value == DUMMY_MESH_NAME:
+            if not mesh_prop_value or mesh_prop_value == 'NONE':
                 continue
 
             usd_mesh_prim = cached_stage.GetPrimAtPath(mesh_prop_value)
