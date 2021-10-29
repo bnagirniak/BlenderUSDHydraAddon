@@ -76,38 +76,17 @@ register_classes, unregister_classes = bpy.utils.register_classes_factory([
     hydra_render.HydraRenderNode,
     rpr_render_settings.RprRenderSettingsNode,
     transformations.TransformNode,
-    assign_material.HDUSD_USD_NODETREE_OP_assign_material_assign_material,
     assign_material.HDUSD_USD_NODETREE_OP_assign_material_add_mesh,
     assign_material.HDUSD_USD_NODETREE_OP_assign_material_remove_mesh,
     assign_material.AssignMaterialNode,
 ])
 
-MAX_MESH_COUNT = assign_material.MAX_MESH_COUNT
-BaseClass = assign_material.HDUSD_USD_NODETREE_MT_assign_material_material_base_class
-
-mat_menu_classes = []
-
-for i in range(MAX_MESH_COUNT):
-    NewMatMenuClass = type(f"HDUSD_USD_NODETREE_MT_assign_material_material_{i}",
-                    (BaseClass,),
-                    {})
-
-    NewMatMenuClass.bl_idname = f"HDUSD_USD_NODETREE_MT_assign_material_material_{i}"
-    NewMatMenuClass.index = i
-
-    mat_menu_classes.append(NewMatMenuClass)
-
-register_mat_menu_classes, unregister_mat_menu_classes = \
-    bpy.utils.register_classes_factory(mat_menu_classes)
-
 
 def register():
     register_classes()
-    register_mat_menu_classes()
     nodeitems_utils.register_node_categories("USD_NODES", node_categories)
 
 
 def unregister():
     nodeitems_utils.unregister_node_categories("USD_NODES")
-    unregister_mat_menu_classes()
     unregister_classes()

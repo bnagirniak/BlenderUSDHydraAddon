@@ -25,37 +25,6 @@ from ...export import material
 MAX_MESH_COUNT = 10
 
 
-class HDUSD_USD_NODETREE_MT_assign_material_material_base_class(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_base_class"
-    bl_label = "Material"
-
-    index = 0
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = f"material_{self.index}"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_OP_assign_material_assign_material(bpy.types.Operator):
-    """Assign material"""
-    bl_idname = "hdusd.usd_nodetree_assign_material_assign_material"
-    bl_label = ""
-
-    material_prop_name: bpy.props.StringProperty(default="")
-    material_name: bpy.props.StringProperty(default="")
-
-    def execute(self, context):
-        setattr(context.node, self.material_prop_name, bpy.data.materials[self.material_name])
-        return {"FINISHED"}
-
-
 class HDUSD_USD_NODETREE_OP_assign_material_add_mesh(bpy.types.Operator):
     """Add material assignment to mesh"""
     bl_idname = "hdusd.usd_nodetree_assign_material_add_mesh"
@@ -126,8 +95,8 @@ class AssignMaterialNode(USDNode):
         mesh_collection = [('NONE', "", "")]
 
         for prim in usd_prims:
-            mesh_collection.append(
-                (prim.GetPath().pathString, prim.GetName(), str(len(mesh_collection))))
+            path_str = str(prim.GetPath())
+            mesh_collection.append((path_str, path_str, path_str))
 
         return mesh_collection
 
@@ -295,9 +264,6 @@ class AssignMaterialNode(USDNode):
             row.prop(self, mesh_prop_name, text="")
             row.separator()
             row.prop(self, material_prop_name, text="")
-            # row.menu(f"HDUSD_USD_NODETREE_MT_assign_material_{material_prop_name}",
-            #          text=material_prop_value.name_full if material_prop_value else " ",
-            #          icon='MATERIAL')
             op_remove_mesh = row.operator(
                 HDUSD_USD_NODETREE_OP_assign_material_remove_mesh.bl_idname, icon='X')
             op_remove_mesh.index = i
