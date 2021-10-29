@@ -36,6 +36,24 @@ def get_meshes(stage):
     return mesh_collection
 
 
+class HDUSD_USD_NODETREE_MT_assign_material_material_base_class(bpy.types.Menu):
+    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_base_class"
+    bl_label = "Material"
+
+    index = 0
+
+    def draw(self, context):
+        layout = self.layout
+        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
+
+        for mat in materials:
+            row = layout.row()
+            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
+                              text=mat.name_full, icon='MATERIAL')
+            op.material_prop_name = "material_" + str(self.index)
+            op.material_name = mat.name_full
+
+
 class HDUSD_USD_NODETREE_OP_assign_material_assign_material(bpy.types.Operator):
     """Assign material"""
     bl_idname = "hdusd.usd_nodetree_assign_material_assign_material"
@@ -75,7 +93,7 @@ class HDUSD_USD_NODETREE_OP_assign_material_add_mesh(bpy.types.Operator):
             return {"FINISHED"}
 
         for i, index in enumerate(mesh_idxs_vector):
-            if i + 1 == len(mesh_idxs_vector):
+            if i == len(mesh_idxs_vector):
                 mesh_idxs_vector[i] = i
                 return {"FINISHED"}
 
@@ -106,167 +124,6 @@ class HDUSD_USD_NODETREE_OP_assign_material_remove_mesh(bpy.types.Operator):
         mesh_idxs_vector[self.index] = -1
         return {"FINISHED"}
 
-# region material menus
-class HDUSD_USD_NODETREE_MT_assign_material_material_1(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_1"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_1"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_2(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_2"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_2"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_3(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_3"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_3"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_4(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_4"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_4"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_5(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_5"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_5"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_6(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_6"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_6"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_7(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_7"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_7"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_8(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_8"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_8"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_9(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_9"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_9"
-            op.material_name = mat.name_full
-
-
-class HDUSD_USD_NODETREE_MT_assign_material_material_10(bpy.types.Menu):
-    bl_idname = "HDUSD_USD_NODETREE_MT_assign_material_material_10"
-    bl_label = "Material"
-
-    def draw(self, context):
-        layout = self.layout
-        materials = (material for material in bpy.data.materials if not material.is_grease_pencil)
-
-        for mat in materials:
-            row = layout.row()
-            op = row.operator(HDUSD_USD_NODETREE_OP_assign_material_assign_material.bl_idname,
-                              text=mat.name_full, icon='MATERIAL')
-            op.material_prop_name = "material_10"
-            op.material_name = mat.name_full
-# endregion
-
 
 class AssignMaterialNode(USDNode):
     """Assign material"""
@@ -274,8 +131,8 @@ class AssignMaterialNode(USDNode):
     bl_label = "Assign material"
     bl_icon = "MATERIAL"
 
-    mesh_collection_names = tuple(f"mesh_collection_{i + 1}" for i in range(MAX_MESH_COUNT))
-    material_collection_names = tuple(f"material_{i + 1}" for i in range(MAX_MESH_COUNT))
+    mesh_collection_names = tuple(f"mesh_collection_{i}" for i in range(MAX_MESH_COUNT))
+    material_collection_names = tuple(f"material_{i}" for i in range(MAX_MESH_COUNT))
 
     def update_data(self, context):
         self.reset()
@@ -290,6 +147,20 @@ class AssignMaterialNode(USDNode):
     # region properties
     mesh_idxs_vector: bpy.props.IntVectorProperty(
         name="Selected meshes", size=MAX_MESH_COUNT, default=(0,-1,-1,-1,-1,-1,-1,-1,-1,-1)
+    )
+
+    mesh_collection_0: bpy.props.EnumProperty(
+        name="Mesh",
+        description="Select mesh",
+        items=get_mesh_collection,
+        update=update_data,
+    )
+
+    material_0: bpy.props.PointerProperty(
+        type=bpy.types.Material,
+        name="Material",
+        description="",
+        update=update_data
     )
 
     mesh_collection_1: bpy.props.EnumProperty(
@@ -417,20 +288,6 @@ class AssignMaterialNode(USDNode):
         description="",
         update=update_data
     )
-
-    mesh_collection_10: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_10: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
     # endregion
 
     def draw_buttons(self, context, layout):
@@ -439,8 +296,8 @@ class AssignMaterialNode(USDNode):
         selected_meshes = tuple(idx for idx in self.mesh_idxs_vector if idx != -1)
 
         for i in selected_meshes:
-            mesh_prop_name = "mesh_collection_" + str(i+1)
-            material_prop_name = "material_" + str(i+1)
+            mesh_prop_name = "mesh_collection_" + str(i)
+            material_prop_name = "material_" + str(i)
 
             material_prop_value = getattr(self, material_prop_name)
 
@@ -478,7 +335,7 @@ class AssignMaterialNode(USDNode):
         selected_meshes = tuple(idx for idx in self.mesh_idxs_vector if idx != -1)
 
         for i in selected_meshes:
-            mesh_prop_name = "mesh_collection_" + str(i+1)
+            mesh_prop_name = "mesh_collection_" + str(i)
 
             mesh_prop_value = getattr(self, mesh_prop_name)
             material_prop_value = getattr(self, self.material_collection_names[i])
