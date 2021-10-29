@@ -23,6 +23,8 @@ from ...export import material
 
 
 MAX_MESH_COUNT = 10
+MIN_MESH_COUNT = 1
+
 DUMMY_MESH_NAME = 'NONE'
 
 
@@ -122,7 +124,7 @@ class HDUSD_USD_NODETREE_OP_assign_material_remove_mesh(bpy.types.Operator):
         setattr(context.node, current_mesh_prop_name, DUMMY_MESH_NAME)
 
         selected_meshes = len(tuple(filter(lambda val: val != -1, mesh_idxs_vector)))
-        if selected_meshes == 1:
+        if selected_meshes == MIN_MESH_COUNT:
             return {"FINISHED"}
 
         mesh_idxs_vector[self.index] = -1
@@ -150,7 +152,9 @@ class AssignMaterialNode(USDNode):
 
     # region properties
     mesh_idxs_vector: bpy.props.IntVectorProperty(
-        name="Selected meshes", size=MAX_MESH_COUNT, default=(0,-1,-1,-1,-1,-1,-1,-1,-1,-1)
+        name="Selected meshes", size=MAX_MESH_COUNT,
+        default=tuple((i for i in range(MIN_MESH_COUNT))) +
+                tuple((-1 for i in range(MAX_MESH_COUNT - MIN_MESH_COUNT)))
     )
 
     mesh_collection_0: bpy.props.EnumProperty(
