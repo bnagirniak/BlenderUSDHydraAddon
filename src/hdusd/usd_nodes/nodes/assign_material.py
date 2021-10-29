@@ -23,11 +23,12 @@ from ...export import material
 
 
 MAX_MESH_COUNT = 10
+DUMMY_MESH_NAME = 'NONE'
 
 
 def get_meshes(stage):
     usd_prims = (prim for prim in stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
-    mesh_collection = []
+    mesh_collection = [(DUMMY_MESH_NAME, DUMMY_MESH_NAME, DUMMY_MESH_NAME)]
 
     for prim in usd_prims:
         mesh_collection.append(
@@ -115,7 +116,10 @@ class HDUSD_USD_NODETREE_OP_assign_material_remove_mesh(bpy.types.Operator):
         mesh_idxs_vector = context.node.mesh_idxs_vector
 
         current_material_prop_name = context.node.material_collection_names[self.index]
+        current_mesh_prop_name = context.node.mesh_collection_names[self.index]
+
         setattr(context.node, current_material_prop_name, None)
+        setattr(context.node, current_mesh_prop_name, DUMMY_MESH_NAME)
 
         selected_meshes = len(tuple(filter(lambda val: val != -1, mesh_idxs_vector)))
         if selected_meshes == 1:
@@ -340,7 +344,7 @@ class AssignMaterialNode(USDNode):
             mesh_prop_value = getattr(self, mesh_prop_name)
             material_prop_value = getattr(self, self.material_collection_names[i])
 
-            if not mesh_prop_value:
+            if not mesh_prop_value or mesh_prop_value == DUMMY_MESH_NAME:
                 continue
 
             usd_mesh_prim = cached_stage.GetPrimAtPath(mesh_prop_value)
