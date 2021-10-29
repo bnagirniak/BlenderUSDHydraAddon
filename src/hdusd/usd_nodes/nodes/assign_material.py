@@ -91,7 +91,6 @@ class HDUSD_USD_NODETREE_OP_assign_material_add_mesh(bpy.types.Operator):
         mesh_idxs_vector = context.node.mesh_idxs_vector
 
         not_selected_meshes = next((idx for idx in mesh_idxs_vector if idx == -1), None)
-
         if not not_selected_meshes:
             return {"FINISHED"}
 
@@ -306,23 +305,25 @@ class AssignMaterialNode(USDNode):
         for i in selected_meshes:
             mesh_prop_name = "mesh_collection_" + str(i)
             material_prop_name = "material_" + str(i)
-
             material_prop_value = getattr(self, material_prop_name)
 
             split = layout.row(align=True).split(factor=0.85)
             col = split.column()
             col.prop(self, mesh_prop_name)
             col = split.column()
+
             op_remove_mesh = col.operator(
                 HDUSD_USD_NODETREE_OP_assign_material_remove_mesh.bl_idname, icon='X')
             op_remove_mesh.index = i
 
             split = layout.row(align=True).split(factor=0.85)
             col = split.column()
+
             menu_name = "HDUSD_USD_NODETREE_MT_assign_material_" + material_prop_name
             if material_prop_value:
                 col.menu(menu_name, text=material_prop_value.name_full, icon='MATERIAL')
                 col = split.column()
+
                 op_remove_mat = col.operator(HDUSD_USD_NODETREE_OP_assign_material_remove_material.bl_idname, icon='X')
                 op_remove_mat.material_prop_name = material_prop_name
             else:
@@ -341,7 +342,6 @@ class AssignMaterialNode(USDNode):
         cached_stage.GetRootLayer().TransferContent(input_stage.GetRootLayer())
 
         selected_meshes = tuple(idx for idx in self.mesh_idxs_vector if idx != -1)
-
         for i in selected_meshes:
             mesh_prop_name = "mesh_collection_" + str(i)
 
