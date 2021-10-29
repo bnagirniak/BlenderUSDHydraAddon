@@ -76,8 +76,6 @@ register_classes, unregister_classes = bpy.utils.register_classes_factory([
     hydra_render.HydraRenderNode,
     rpr_render_settings.RprRenderSettingsNode,
     transformations.TransformNode,
-    assign_material.HDUSD_USD_NODETREE_OP_assign_material_add_mesh,
-    assign_material.HDUSD_USD_NODETREE_OP_assign_material_remove_mesh,
     assign_material.AssignMaterialNode,
 ])
 

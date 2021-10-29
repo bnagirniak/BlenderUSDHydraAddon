@@ -13,7 +13,7 @@
 # limitations under the License.
 # ********************************************************************
 import bpy
-import math
+import re
 
 from pxr import Usd, UsdGeom, Tf, UsdShade
 
@@ -21,56 +21,7 @@ from .base_node import USDNode
 
 from ...export import material
 
-
-MAX_MESH_COUNT = 10
-
-
-class HDUSD_USD_NODETREE_OP_assign_material_add_mesh(bpy.types.Operator):
-    """Add material assignment to mesh"""
-    bl_idname = "hdusd.usd_nodetree_assign_material_add_mesh"
-    bl_label = "Add Assignment"
-
-    def execute(self, context):
-        mesh_idxs_vector = context.node.mesh_idxs_vector
-
-        not_selected_meshes = next((idx for idx in mesh_idxs_vector if idx == -1), None)
-        if not not_selected_meshes:
-            return {"FINISHED"}
-
-        for i, index in enumerate(mesh_idxs_vector):
-            if i == len(mesh_idxs_vector):
-                mesh_idxs_vector[i] = i
-                return {"FINISHED"}
-
-            if mesh_idxs_vector[i] == -1:
-                mesh_idxs_vector[i] = i
-                return {"FINISHED"}
-
-        return {"FINISHED"}
-
-
-class HDUSD_USD_NODETREE_OP_assign_material_remove_mesh(bpy.types.Operator):
-    """Add mesh"""
-    bl_idname = "hdusd.usd_nodetree_assign_material_remove_mesh"
-    bl_label = ""
-
-    index: bpy.props.IntProperty()
-
-    def execute(self, context):
-        mesh_idxs_vector = context.node.mesh_idxs_vector
-
-        current_material_prop_name = context.node.material_collection_names[self.index]
-        current_mesh_prop_name = context.node.mesh_collection_names[self.index]
-
-        setattr(context.node, current_material_prop_name, None)
-        setattr(context.node, current_mesh_prop_name, 'NONE')
-
-        selected_meshes = len(tuple(filter(lambda val: val != -1, mesh_idxs_vector)))
-        if selected_meshes == 1:
-            return {"FINISHED"}
-
-        mesh_idxs_vector[self.index] = -1
-        return {"FINISHED"}
+MAX_VISIBLE_MESHES = 2
 
 
 class AssignMaterialNode(USDNode):
@@ -80,43 +31,54 @@ class AssignMaterialNode(USDNode):
     bl_icon = "MATERIAL"
     bl_width_default = 300
 
-    mesh_collection_names = tuple(f"mesh_collection_{i}" for i in range(MAX_MESH_COUNT))
-    material_collection_names = tuple(f"material_{i}" for i in range(MAX_MESH_COUNT))
-
     def update_data(self, context):
         self.reset()
 
     def get_mesh_collection(self, context):
         input_stage = self.get_input_link('Input')
-        if not input_stage or not context:
+        if not input_stage:
             return ()
 
-        usd_prims = (prim for prim in input_stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
+        if self.filter_path:
+            # creating search regex pattern and getting filtered rpims
+            prog = re.compile(self.filter_path.replace('*', '#')  # temporary replacing '*' to '#'
+                              .replace('/', '\/')  # for correct regex pattern
+                              .replace('##', '[\w\/]*')  # creation
+                              .replace('#', '\w*'))
+
+            prims_path = tuple(prim_path for prim in input_stage.TraverseAll()
+                               if prog.fullmatch((prim_path := str(prim.GetPath())))
+                               and prim.GetTypeName() == 'Mesh')
+        else:
+            prims_path = (str(prim.GetPath()) for prim in input_stage.TraverseAll() if prim.GetTypeName() == 'Mesh')
+
         mesh_collection = [('NONE', "", "")]
 
-        for prim in usd_prims:
-            path_str = str(prim.GetPath())
-            mesh_collection.append((path_str, path_str, path_str))
+        for prim_path in prims_path:
+            if len(mesh_collection) - 1 == MAX_VISIBLE_MESHES:
+                mesh_collection.append(('...', '...', 'Use filter to see more available meshes'))
+                return mesh_collection
+
+            mesh_collection.append((prim_path, prim_path, prim_path))
 
         return mesh_collection
+
+    def set_mesh(self, value):
+        selected_mesh = self.get_mesh_collection(None)[value][0]
+        self["filter_path"] = selected_mesh if selected_mesh not in ('...', 'NONE') else ''
+
 
     def poll_material(self, mat):
         return not mat.is_grease_pencil
 
-    # region properties
-    mesh_idxs_vector: bpy.props.IntVectorProperty(
-        name="Selected meshes", size=MAX_MESH_COUNT,
-        default=(0,) + (-1,) * (MAX_MESH_COUNT - 1)     # (0, -1, -1, ...)
-    )
-
-    mesh_collection_0: bpy.props.EnumProperty(
+    mesh: bpy.props.EnumProperty(
         name="Mesh",
         description="Select mesh",
         items=get_mesh_collection,
-        update=update_data,
+        update=update_data, set=set_mesh
     )
 
-    material_0: bpy.props.PointerProperty(
+    material: bpy.props.PointerProperty(
         type=bpy.types.Material,
         name="Material",
         description="",
@@ -124,151 +86,22 @@ class AssignMaterialNode(USDNode):
         poll=poll_material
     )
 
-    mesh_collection_1: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data,
-    )
-
-    material_1: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
+    filter_path: bpy.props.StringProperty(
+        name="Pattern",
+        description="USD Path pattern. Use special characters means:\n"
+                    "  * - any word or subword\n"
+                    "  ** - several words separated by '/' or subword",
+        default='/*',
         update=update_data
     )
-
-    mesh_collection_2: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_2: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-
-    mesh_collection_3: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_3: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-
-    mesh_collection_4: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_4: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-
-    mesh_collection_5: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_5: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-
-    mesh_collection_6: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_6: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-
-    mesh_collection_7: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_7: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-
-    mesh_collection_8: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_8: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-
-    mesh_collection_9: bpy.props.EnumProperty(
-        name="Mesh",
-        description="Select mesh",
-        items=get_mesh_collection,
-        update=update_data
-    )
-
-    material_9: bpy.props.PointerProperty(
-        type=bpy.types.Material,
-        name="Material",
-        description="",
-        update=update_data
-    )
-    # endregion
 
     def draw_buttons(self, context, layout):
-        for i in self.mesh_idxs_vector:
-            if i == -1:
-                continue
-
-            mesh_prop_name = f"mesh_collection_{i}"
-            material_prop_name = f"material_{i}"
-            material_prop_value = getattr(self, material_prop_name)
-
-            row = layout.row(align=True)
-            row.prop(self, mesh_prop_name, text="")
-            row.separator()
-            row.prop(self, material_prop_name, text="")
-            op_remove_mesh = row.operator(
-                HDUSD_USD_NODETREE_OP_assign_material_remove_mesh.bl_idname, icon='X')
-            op_remove_mesh.index = i
-
-        layout.operator(HDUSD_USD_NODETREE_OP_assign_material_add_mesh.bl_idname)
+        row = layout.row(align=True)
+        row.prop(self, "mesh", text="", icon_only=True, icon='OUTLINER_DATA_MESH')
+        row.separator()
+        row.prop(self, 'filter_path', text="")
+        row.separator()
+        row.prop(self, "material", text="")
 
     def compute(self, **kwargs):
         input_stage = self.get_input_link('Input', **kwargs)
@@ -279,23 +112,29 @@ class AssignMaterialNode(USDNode):
         cached_stage = self.cached_stage.create()
         cached_stage.GetRootLayer().TransferContent(input_stage.GetRootLayer())
 
-        selected_meshes = tuple(idx for idx in self.mesh_idxs_vector if idx != -1)
-        for i in selected_meshes:
-            mesh_prop_name = "mesh_collection_" + str(i)
+        # creating search regex pattern and getting filtered rpims
+        prog = re.compile(self.filter_path.replace('*', '#')  # temporary replacing '*' to '#'
+                          .replace('/', '\/')  # for correct regex pattern
+                          .replace('##', '[\w\/]*')  # creation
+                          .replace('#', '\w*'))
 
-            mesh_prop_value = getattr(self, mesh_prop_name)
-            material_prop_value = getattr(self, self.material_collection_names[i])
+        prims_path = tuple(prim_path for prim in input_stage.TraverseAll()
+                           if prog.fullmatch((prim_path := str(prim.GetPath())))
+                           and prim.GetTypeName() == 'Mesh')
+        if not prims_path:
+            return cached_stage
 
-            if not mesh_prop_value or mesh_prop_value == 'NONE':
-                continue
+        material_prop_value = self.material
 
-            usd_mesh_prim = cached_stage.GetPrimAtPath(mesh_prop_value)
+        for prim_path in prims_path:
+            usd_mesh_prim = cached_stage.GetPrimAtPath(prim_path)
             if not usd_mesh_prim or not usd_mesh_prim.IsValid():
                 continue
 
-            usd_prim = cached_stage.GetPrimAtPath(mesh_prop_value).GetParent()
-            usd_mesh = UsdGeom.Mesh.Get(cached_stage, mesh_prop_value)
-            usd_mesh_rel_mat = UsdShade.MaterialBindingAPI.Get(cached_stage, usd_mesh.GetPath()).GetDirectBindingRel()
+            usd_prim = cached_stage.GetPrimAtPath(prim_path).GetParent()
+            usd_mesh = UsdGeom.Mesh.Get(cached_stage, prim_path)
+            usd_mesh_rel_mat = UsdShade.MaterialBindingAPI.Get(cached_stage,
+                                                               usd_mesh.GetPath()).GetDirectBindingRel()
 
             old_mat_path = next((target for target in usd_mesh_rel_mat.GetTargets()), None) \
                 if usd_mesh_rel_mat.IsValid() else None
