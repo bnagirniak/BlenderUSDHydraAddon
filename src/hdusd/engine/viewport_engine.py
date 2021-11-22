@@ -14,22 +14,22 @@
 #********************************************************************
 from dataclasses import dataclass
 import textwrap
-
-import bpy
-from bpy_extras import view3d_utils
 import weakref
 import time
 
-from pxr import Usd, UsdGeom, Tf
+import bpy
+import bgl
+from bpy_extras import view3d_utils
+
+from pxr import Usd, UsdGeom, Tf, Gf, Glf
 from pxr import UsdImagingGL
 
 from .engine import Engine
 from ..export import camera, material, object, world
-from .. import utils
 from ..utils import usd as usd_utils
 from ..utils import time_str
 from ..utils import logging
-log = logging.Log(tag='viewport_engine')
+log = logging.Log('viewport_engine')
 
 
 @dataclass(init=False, eq=True)
@@ -164,6 +164,9 @@ class ViewportEngine(Engine):
         # removing current engine from _engine_refs
         self._engine_refs.remove(weakref.ref(self))
 
+    def get_settings(self, scene):
+        return scene.hdusd.viewport
+
     def notify_status(self, info, status, redraw=True):
         """ Display export progress status """
         log(f"Status: {status} | {info}")
@@ -177,12 +180,12 @@ class ViewportEngine(Engine):
         log('Start sync')
 
         scene = depsgraph.scene
-        settings = scene.hdusd.viewport
+        settings = self.get_settings(scene)
 
         self.is_gl_delegate = settings.is_gl_delegate
 
         self.space_data = context.space_data
-        self.shading_data = None
+        self.shading_data = world.ShadingData(context, depsgraph.scene.world)
 
         self.render_params = UsdImagingGL.RenderParams()
         self.render_params.frame = Usd.TimeCode.Default()
@@ -191,7 +194,7 @@ class ViewportEngine(Engine):
 
         self._sync(context, depsgraph)
 
-        usd_utils.set_variant_delegate(self.stage, self.is_gl_delegate)
+        usd_utils.set_delegate_variant_stage(self.stage, settings.delegate_name)
 
         self.is_synced = True
         log('Finish sync')
@@ -202,15 +205,21 @@ class ViewportEngine(Engine):
         if not self.is_synced:
             return
 
+        settings = self.get_settings(depsgraph.scene)
+
         if self.renderer.IsPauseRendererSupported():
             self.renderer.PauseRenderer()
 
-        gl_delegate_changed = self.is_gl_delegate != depsgraph.scene.hdusd.viewport.is_gl_delegate
+        if self._check_restart_renderer(depsgraph.scene):
+            self.renderer = None    # explicit renderer deletion
+            self.renderer = UsdImagingGL.Engine()
+
+        gl_delegate_changed = self.is_gl_delegate != settings.is_gl_delegate
 
         self._sync_update(context, depsgraph)
 
         if gl_delegate_changed:
-            usd_utils.set_variant_delegate(self.cached_stage(), self.is_gl_delegate)
+            usd_utils.set_delegate_variant_stage(self.cached_stage(), settings.delegate_name)
 
         if self.renderer.IsPauseRendererSupported():
             self.renderer.ResumeRenderer()
@@ -248,9 +257,22 @@ class ViewportEngine(Engine):
         self.renderer.SetRenderViewport((*view_settings.border[0], *view_settings.border[1]))
         self.renderer.SetRendererAov('color')
         self.render_params.renderResolution = (view_settings.width, view_settings.height)
+        self.render_params.clipPlanes = [Gf.Vec4d(i) for i in gf_camera.clippingPlanes]
+
+        if self.shading_data.type == 'MATERIAL' and self.is_gl_delegate:
+            l = Glf.SimpleLight()
+            l.ambient = (0, 0, 0, 0)
+            l.position = (*gf_camera.frustum.position, 1)
+
+            mat = Glf.SimpleMaterial()
+
+            self.renderer.SetLightingState((l,), mat, (0, 0, 0, 0))
+
+        bgl.glClear(bgl.GL_COLOR_BUFFER_BIT | bgl.GL_DEPTH_BUFFER_BIT)
+
         self.render_engine.bind_display_space_shader(context.scene)
 
-        if self.renderer.GetRenderStats().get('percentDone', 0.0) == 0.0:
+        if usd_utils.get_renderer_percent_done(self.renderer) == 0.0:
             self.time_begin = time.perf_counter()
 
         try:
@@ -263,15 +285,20 @@ class ViewportEngine(Engine):
                 log.error(e)
 
         self.render_engine.unbind_display_space_shader()
+
+        # additional clear of GL depth buffer which provides blender to draw viewport grid
+        bgl.glClear(bgl.GL_DEPTH_BUFFER_BIT)
+
         elapsed_time = time_str(time.perf_counter() - self.time_begin)
         if not self.renderer.IsConverged():
             self.notify_status(f"Time: {elapsed_time} | "
-                               f"Done: {round(self.renderer.GetRenderStats()['percentDone'])}%", "Render")
+                               f"Done: {int(usd_utils.get_renderer_percent_done(self.renderer))}%",
+                               "Render")
         else:
             self.notify_status(f"Time: {elapsed_time}", "Rendering Done", False)
 
     def _sync_render_settings(self, scene):
-        settings = scene.hdusd.viewport
+        settings = self.get_settings(scene)
 
         self.is_gl_delegate = settings.is_gl_delegate
         self.renderer.SetRendererPlugin(settings.delegate)
@@ -302,6 +329,16 @@ class ViewportEngine(Engine):
             self.renderer.SetRendererSetting('denoiseMinIter', denoise.min_iter)
             self.renderer.SetRendererSetting('denoiseIterStep', denoise.iter_step)
 
+    def _check_restart_renderer(self, scene):
+        restart = False
+
+        settings = self.get_settings(scene)
+        if settings.delegate == 'HdRprPlugin':
+            hdrpr = settings.hdrpr
+            restart = self.renderer.GetRendererSetting('renderQuality') != hdrpr.render_quality
+
+        return restart
+
 
 class ViewportEngineScene(ViewportEngine):
     """Viewport engine for rendering Blender current scene"""
@@ -327,8 +364,6 @@ class ViewportEngineScene(ViewportEngine):
         UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
 
         root_prim = stage.GetPseudoRoot()
-
-        self.shading_data = world.ShadingData(context, depsgraph.scene.world)
 
         for obj_data in object.ObjectData.depsgraph_objects(
                 depsgraph,
@@ -425,7 +460,7 @@ class ViewportEngineNodetree(ViewportEngine):
     def _sync(self, context, depsgraph):
         super()._sync(context, depsgraph)
 
-        self.data_source = depsgraph.scene.hdusd.viewport.data_source
+        self.data_source = self.get_settings(depsgraph.scene).data_source
 
         stage = self.cached_stage.create()
         UsdGeom.SetStageMetersPerUnit(stage, 1)
@@ -449,10 +484,6 @@ class ViewportEngineNodetree(ViewportEngine):
         if stage:
             # creating overrides from nodetree stage
             for prim in stage.GetPseudoRoot().GetAllChildren():
-                if prim.GetName() == 'World':
-                    world_data = world.WorldData.init_from_stage(stage)
-                    self.render_params.clearColor = world_data.clear_color
-
                 override_prim = engine_stage.OverridePrim(
                     root_prim.GetPath().AppendChild(prim.GetName()))
                 override_prim.GetReferences().AddReference(stage.GetRootLayer().realPath,

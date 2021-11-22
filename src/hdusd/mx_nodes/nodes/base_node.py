@@ -16,7 +16,7 @@ import MaterialX as mx
 
 import bpy
 
-from ...utils import title_str, code_str, LIBS_DIR
+from ...utils import title_str, code_str, LIBS_DIR, pass_node_reroute
 from ...utils import mx as mx_utils
 from . import log
 
@@ -31,19 +31,16 @@ class MxNodeInputSocket(bpy.types.NodeSocket):
         nd_type = nd_input.getType()
 
         uiname = mx_utils.get_attr(nd_input, 'uiname', title_str(nd_input.getName()))
-        if nd.getName() == "ND_rpr_uber_surfaceshader":
-            # special case for ND_rpr_uber_surfaceshader
-            uifolder = mx_utils.get_attr(nd_input, 'uifolder')
-            uiname = f"{uifolder} {uiname}"
-
+        is_prop_area = context.area.type == 'PROPERTIES'
         if self.is_linked or mx_utils.is_shader_type(nd_type) or nd_input.getValue() is None:
             uitype = title_str(nd_type)
-            if uiname.lower() == uitype.lower():
-                layout.label(text=uitype)
-            else:
-                layout.label(text=f"{uiname}: {uitype}")
+            layout.label(text=uitype if uiname.lower() == uitype.lower() or is_prop_area else f"{uiname}: {uitype}")
         else:
-            layout.prop(node, node._input_prop_name(self.name), text=uiname)
+            if nd_type == 'boolean':
+                layout.use_property_split = False
+                layout.alignment = 'LEFT'
+            layout.prop(node, node._input_prop_name(self.name), text='' if is_prop_area else uiname)
+
 
     def draw_color(self, context, node):
         return mx_utils.get_socket_color(node.nodedef.getInput(self.name).getType())
@@ -103,6 +100,14 @@ class MxNode(bpy.types.ShaderNode):
     def nodedef(self):
         return self.get_nodedef(self.data_type)
 
+    @property
+    def mx_node_path(self):
+        nd = self.nodedef
+        if '/' in self.name or mx_utils.is_shader_type(nd.getOutputs()[0].getType()):
+            return self.name
+
+        return f"NG/{self.name}"
+
     def _folder_prop_name(self, name):
         return f"f_{code_str(name.lower())}"
 
@@ -138,8 +143,14 @@ class MxNode(bpy.types.ShaderNode):
         nodetree.no_update_call(init_)
 
     def draw_buttons(self, context, layout):
+        is_prop_area = context.area.type == 'PROPERTIES'
         if len(self._data_types) > 1:
-            layout.prop(self, 'data_type')
+            layout1 = layout
+            if is_prop_area:
+                layout1 = layout1.split(factor=0.012, align=True)
+                col = layout1.column()
+                layout1 = layout1.column()
+            layout1.prop(self, 'data_type')
 
         nodedef = self.nodedef
 
@@ -148,6 +159,8 @@ class MxNode(bpy.types.ShaderNode):
             r = None
             for i, f in enumerate(self._ui_folders):
                 if i % 3 == 0:  # putting 3 buttons per row
+                    col.use_property_split = False
+                    col.use_property_decorate = False
                     r = col.row(align=True)
                 r.prop(self, self._folder_prop_name(f), toggle=True)
 
@@ -158,8 +171,9 @@ class MxNode(bpy.types.ShaderNode):
 
             name = nd_input.getName()
             if self.category in ("texture2d", "texture3d") and nd_input.getType() == 'filename':
-                split = layout.row(align=True).split(factor=0.25, align=True)
+                split = layout.row(align=True).split(factor=0.4 if is_prop_area else 0.25, align=True)
                 col = split.column()
+                col.alignment='RIGHT' if is_prop_area else 'EXPAND'
                 col.label(text=nd_input.getAttribute('uiname') if nd_input.hasAttribute('uiname')
                           else title_str(name))
                 col = split.column()
@@ -167,44 +181,62 @@ class MxNode(bpy.types.ShaderNode):
                                 open="image.open", new="image.new")
 
             else:
-                layout.prop(self, self._input_prop_name(name))
+                layout1 = layout
+                if is_prop_area:
+                    layout1 = layout1.split(factor=0.012, align=True)
+                    col = layout1.column()
+                    layout1 = layout1.column()
+                layout1.prop(self, self._input_prop_name(name))
 
     def draw_node_view(self, context, layout):
         from ...ui.material import HDUSD_MATERIAL_OP_invoke_popup_input_nodes
-
+        layout.use_property_split = True
+        layout.use_property_decorate = True
         self.draw_buttons(context, layout)
 
         for i, socket_in in enumerate(self.inputs):
+            nd = self.nodedef
+            uiname = mx_utils.get_attr(nd.getInput(socket_in.name), 'uiname',
+                                       title_str(nd.getInput(socket_in.name).getName()))
             if socket_in.is_linked:
                 link = next((link for link in socket_in.links if link.is_valid), None)
                 if not link:
                     continue
 
-                node = link.from_node
+                link = pass_node_reroute(link)
+                if not link or isinstance(link.from_node, bpy.types.NodeReroute):
+                    continue
 
-                split = layout.split(factor=0.1)
-                split.column()
+                split = layout.split(factor=0.4)
+                split_1 = split.split(factor=0.4)
 
-                row = split.row()
+                row = split_1.row()
+                row.use_property_split = False
+                row.use_property_decorate = False
+                row.alignment = 'LEFT'
                 row.prop(socket_in, "show_expanded",
-                         icon="TRIA_DOWN" if socket_in.show_expanded else "TRIA_RIGHT",
-                         icon_only=True, emboss=False
-                         )
-
-                socket_in.draw(context, row, self, '')
+                         icon="DISCLOSURE_TRI_DOWN" if socket_in.show_expanded else "DISCLOSURE_TRI_RIGHT",
+                         icon_only=True, emboss=False)
+                row = split_1.row()
+                row.alignment = 'RIGHT'
+                row.label(text=uiname)
+                row = split.row(align=True)
+                row.use_property_decorate = False
 
                 box = row.box()
-                box.scale_x = 1.025
+                box.scale_x = 0.7
                 box.scale_y = 0.5
                 box.emboss = 'UI_EMBOSS_NONE_OR_STATUS'
 
-                op = box.operator(HDUSD_MATERIAL_OP_invoke_popup_input_nodes.bl_idname,
-                                  icon='HANDLETYPE_AUTO_CLAMP_VEC', text=node.name)
+                op = box.operator(HDUSD_MATERIAL_OP_invoke_popup_input_nodes.bl_idname, icon='HANDLETYPE_AUTO_CLAMP_VEC')
                 op.input_num = i
                 op.current_node_name = self.name
 
+                row.prop(link.from_node, 'name', text='')
+                row.label(icon='BLANK1')
+
                 if socket_in.show_expanded:
-                    node.draw_node_view(context, layout)
+                    link.from_node.draw_node_view(context, layout)
 
             else:
                 mx_input = self.nodedef.getInput(socket_in.name)
@@ -215,20 +247,21 @@ class MxNode(bpy.types.ShaderNode):
                         is_draw = False
 
                 if is_draw:
-                    split = layout.split(factor=0.1)
-                    split.column()
-                    split = split.split(factor=0.085)
+                    split = layout.split(factor=0.4)
 
-                    box = split.box()
+                    row = split.row(align=True)
+                    row.alignment = 'RIGHT'
+                    row.label(text=uiname)
+                    row = split.row(align=True)
+                    box = row.box()
+                    box.scale_x = 0.7
                     box.scale_y = 0.5
-                    box.emboss = 'UI_EMBOSS_NONE_OR_STATUS'
 
                     op = box.operator(HDUSD_MATERIAL_OP_invoke_popup_input_nodes.bl_idname,
                                       icon='HANDLETYPE_AUTO_CLAMP_VEC')
                     op.input_num = i
                     op.current_node_name = self.name
 
-                    row = split.row()
                     socket_in.draw(context, row, self, '')
 
     # COMPUTE FUNCTION
@@ -238,10 +271,7 @@ class MxNode(bpy.types.ShaderNode):
         doc = kwargs['doc']
         nodedef = self.nodedef
         nd_output = self.get_nodedef_output(out_key)
-        node_path = self.name
-        if nodedef.getNodeString() not in ('surfacematerial', 'standard_surface', 'rpr_uberv2') \
-                and '/' not in node_path:
-            node_path = f"NG/{node_path}"
+        node_path = self.mx_node_path
 
         values = []
         for in_key in range(len(self.inputs)):
@@ -305,9 +335,10 @@ class MxNode(bpy.types.ShaderNode):
         # checking if node is already in nodegraph
 
         doc = kwargs['doc']
-        mx_nodegraph = mx_utils.get_nodegraph_by_node_path(doc, node.name)
+        node_path = node.mx_node_path
+        mx_nodegraph = mx_utils.get_nodegraph_by_node_path(doc, node_path)
         if mx_nodegraph:
-            node_name = mx_utils.get_node_name_by_node_path(node.name)
+            node_name = mx_utils.get_node_name_by_node_path(node_path)
             mx_node = mx_nodegraph.getNode(node_name)
             if mx_node:
                 if mx_node.getType() == 'multioutput':
@@ -328,6 +359,10 @@ class MxNode(bpy.types.ShaderNode):
         link = socket_in.links[0]
         if not link.is_valid:
             log.error("Invalid link found", link, socket_in, self)
+
+        link = pass_node_reroute(link)
+        if not link:
+            return None
 
         return self._compute_node(link.from_node, link.from_socket.name, **kwargs)
 

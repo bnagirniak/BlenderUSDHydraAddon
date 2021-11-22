@@ -12,26 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #********************************************************************
-import os
-
 from ..node_parser import NodeParser
-from ... import utils
 from ...utils.image import cache_image_file
-from . import log
 
 
 TEXTURE_ERROR_COLOR = (1.0, 0.0, 1.0)  # following Cycles color for wrong Texture nodes
-
-# image format conversion for packed pixel/generated images
-IMAGE_FORMATS = {
-    'OPEN_EXR_MULTILAYER': ('OPEN_EXR', 'exr'),
-    'OPEN_EXR': ('OPEN_EXR', 'exr'),
-    'HDR': ('HDR', 'hdr'),
-    'TARGA': ('TARGA', 'tga'),
-    'TARGA_RAW': ('TARGA', 'tga'),
-    # TIFF and everything else will be stored as PNG
-}
-DEFAULT_FORMAT = ('PNG', 'png')
 
 
 class ShaderNodeTexImage(NodeParser):
@@ -43,11 +28,9 @@ class ShaderNodeTexImage(NodeParser):
         if not image or image.source in ('TILED', 'SEQUENCE'):
             return image_error_result
 
-        # there were scenes in Linux that have 0x0x0 image packed
-        if image.size[0] * image.size[1] * image.channels == 0:
-            return image_error_result
-
         img_path = cache_image_file(image)
+        if not img_path:
+            return image_error_result
 
         # TODO use Vector input for UV
         uv = self.create_node('texcoord', 'vector2', {})

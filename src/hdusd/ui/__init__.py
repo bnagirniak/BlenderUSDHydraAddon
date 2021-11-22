@@ -64,7 +64,6 @@ register_classes, unregister_classes = bpy.utils.register_classes_factory([
     render.HDUSD_RENDER_PT_render_settings_final,
     render.HDUSD_RENDER_PT_render_settings_viewport,
     render.HDUSD_RENDER_PT_help_about,
-    render.HDUSD_RENDER_PT_debug,
 
     hdrpr_render.HDUSD_RENDER_PT_hdrpr_settings_final,
     hdrpr_render.HDUSD_RENDER_PT_hdrpr_settings_samples_final,
@@ -81,6 +80,7 @@ register_classes, unregister_classes = bpy.utils.register_classes_factory([
     material.HDUSD_MATERIAL_PT_preview,
     material.HDUSD_MATERIAL_OP_new_mx_node_tree,
     material.HDUSD_MATERIAL_OP_duplicate_mx_node_tree,
+    material.HDUSD_MATERIAL_OP_convert_mx_node_tree,
     material.HDUSD_MATERIAL_OP_duplicate_mat_mx_node_tree,
     material.HDUSD_MATERIAL_OP_link_mx_node_tree,
     material.HDUSD_MATERIAL_OP_unlink_mx_node_tree,
@@ -103,9 +103,7 @@ register_classes, unregister_classes = bpy.utils.register_classes_factory([
     matlib.HDUSD_MATERIAL_OP_matlib_clear_search,
     matlib.HDUSD_MATLIB_OP_import_material,
     matlib.HDUSD_MATLIB_OP_load_package,
-    matlib.HDUSD_MATLIB_OP_select_package,
     matlib.HDUSD_MATLIB_PT_matlib,
-    matlib.HDUSD_MATLIB_MT_package_menu,
 
     world.HDUSD_WORLD_PT_surface,
 

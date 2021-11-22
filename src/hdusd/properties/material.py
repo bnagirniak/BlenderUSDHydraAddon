@@ -22,7 +22,7 @@ from ..usd_nodes import node_tree as usd_node_tree
 from ..engine.viewport_engine import ViewportEngineScene
 
 from ..utils import logging
-log = logging.Log(tag='export.material')
+log = logging.Log('properties.material')
 
 
 class MaterialProperties(HdUSDProperties):
@@ -52,8 +52,7 @@ class MaterialProperties(HdUSDProperties):
 
         doc = mx.createDocument()
 
-        node_parser = ShaderNodeOutputMaterial(doc, material, output_node, obj,
-                                               rpr=bpy.context.scene.hdusd.use_rpr_mx_nodes)
+        node_parser = ShaderNodeOutputMaterial(doc, material, output_node, obj)
         if not node_parser.export():
             return None
 

@@ -18,6 +18,7 @@ import bpy
 import MaterialX as mx
 
 from ..utils import mx as mx_utils
+from ..utils import pass_node_reroute
 from ..mx_nodes.nodes import get_mx_node_cls 
 from . import log
 
@@ -283,17 +284,14 @@ class NodeParser:
         # getting corresponded NodeParser class
         NodeParser_cls = self.get_node_parser_cls(node.bl_idname)
         if not NodeParser_cls:
-            log.warn("Ignoring unsupported node", node, self.material)
+            log.warn(f"Ignoring unsupported node {node.bl_idname}", node, self.material)
             self.cached_nodes[(node.name, out_key)] = None
             return None
 
         node_parser = NodeParser_cls(self.id, self.doc, self.material, node, self.object,
                                      out_key, self.cached_nodes, group_nodes, **self.kwargs)
 
-        if self.kwargs.get('rpr', False):
-            node_item = node_parser.export_rpr()
-        else:
-            node_item = node_parser.export()
+        node_item = node_parser.export()
 
         self.cached_nodes[(node.name, out_key)] = node_item
         return node_item
@@ -337,14 +335,17 @@ class NodeParser:
         """Returns linked parsed node or None if nothing is linked or not link is not valid"""
 
         socket_in = self.node.inputs[in_key]
-        if not socket_in.is_linked:
+        if not socket_in.links:
             return None
 
         link = socket_in.links[0]
 
-        # # check if linked is correct
         if not link.is_valid:
             log.warn("Invalid link ignored", link, socket_in, self.node, self.material)
+            return None
+
+        link = pass_node_reroute(link)
+        if not link:
             return None
 
         return self._export_node(link.from_node, link.from_socket.identifier)
@@ -372,7 +373,3 @@ class NodeParser:
     def export(self) -> [NodeItem, None]:
         """Main export function which should be overridable in child classes"""
         return None
-
-    def export_rpr(self) -> [NodeItem, None]:
-        """Main export with RPR nodes function which could be overridable in child classes"""
-        return self.export()
