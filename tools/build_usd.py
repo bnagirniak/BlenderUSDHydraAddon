@@ -16,7 +16,7 @@ import sys
 import os
 from pathlib import Path
 
-from build import rm_dir, check_call, OS
+from build import rm_dir, check_call, ch_dir, OS
 
 
 def main(bin_dir, clean, build_var, *args):
@@ -38,14 +38,14 @@ in USD repository.
         rm_dir(bin_dir / "USD")
 
     cur_dir = os.getcwd()
-    os.chdir(str(usd_dir))
+    ch_dir(usd_dir)
 
     try:
         # applying patch data/USD_MaterialX.patch
         # Temporary implements https://github.com/PixarAnimationStudios/USD/pull/1610
         # TODO: remove this after up USD to >= 2203 and implement their own fix
         #  https://github.com/PixarAnimationStudios/USD/commit/adfc04eea92b91965b0da68503539b079a5d30d9
-        check_call('git', 'apply', '--whitespace=nowarn', str(repo_dir / "tools/data/USD_MaterialX.patch"))
+        # check_call('git', 'apply', '--whitespace=nowarn', str(repo_dir / "tools/data/USD_MaterialX.patch"))
 
         # applying patch data/USD_deps.patch
         # fixes issues with building USD on python 3.10
@@ -81,16 +81,13 @@ add_subdirectory("{usd_imaging_lite_path.absolute().as_posix()}" usdImagingLite)
                      str(bin_usd_dir / "install"),
                      *args)
 
-        try:
-            check_call(*call_args)
-
-        finally:
-            print("Reverting USD repo")
-            check_call('git', 'checkout', '--', '*')
-            check_call('git', 'clean', '-f')
+        check_call(*call_args)
 
     finally:
-        os.chdir(cur_dir)
+        print("Reverting USD repo")
+        check_call('git', 'checkout', '--', '*')
+        check_call('git', 'clean', '-f')
+        ch_dir(cur_dir)
 
 
 if __name__ == "__main__":
